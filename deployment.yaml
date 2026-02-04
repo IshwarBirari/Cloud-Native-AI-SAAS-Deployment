@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nlp-inference
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nlp-inference
+  template:
+    metadata:
+      labels:
+        app: nlp-inference
+    spec:
+      containers:
+      - name: api
+        image: nlp-inference:latest
+        imagePullPolicy: IfNotPresent
+
+        ports:
+        - containerPort: 8080

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NLP Inference Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f6f7fb; margin:0; }
+    .wrap { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    .card { background:#fff; border-radius:14px; padding:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); }
+    #chat { height: 60vh; overflow:auto; padding:12px; border:1px solid #eee; border-radius:12px; background:#fcfcff; }
+    .msg { margin:10px 0; display:flex; gap:10px; }
+    .me { justify-content:flex-end; }
+    .bubble { max-width: 75%; padding:10px 12px; border-radius:14px; line-height:1.35; }
+    .me .bubble { background:#2563eb; color:#fff; border-bottom-right-radius:6px; }
+    .bot .bubble { background:#e5e7eb; color:#111827; border-bottom-left-radius:6px; }
+    .meta { font-size:12px; color:#6b7280; margin-top:4px; }
+    .row { display:flex; gap:10px; margin-top:12px; }
+    input { flex:1; padding:12px; border-radius:12px; border:1px solid #ddd; outline:none; }
+    button { padding:12px 16px; border-radius:12px; border:0; background:#111827; color:#fff; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .pill { font-size:12px; background:#eef2ff; padding:6px 10px; border-radius:999px; }
+    .hint { color:#4b5563; margin:8px 0 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="top">
+        <h2 style="margin:0;">Cloud-Native NLP Inference UI</h2>
+        <span class="pill">Kubernetes + FastAPI + Transformers</span>
+      </div>
+      <div class="hint">
+        Uses your local port-forward API: <b>http://127.0.0.1:8080/predict</b>
+      </div>
+
+      <div id="chat"></div>
+
+      <div class="row">
+        <input id="text" placeholder="Type text... (e.g., I am stressed about exams)" />
+        <button id="send">Send</button>
+      </div>
+
+      <div class="meta" id="status"></div>
+    </div>
+  </div>
+
+<script>
+  const API = "http://127.0.0.1:8080/predict";
+  const chat = document.getElementById("chat");
+  const text = document.getElementById("text");
+  const send = document.getElementById("send");
+  const statusEl = document.getElementById("status");
+
+  function add(role, message, extra=null) {
+    const div = document.createElement("div");
+    div.className = "msg " + (role === "me" ? "me" : "bot");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = message;
+    div.appendChild(bubble);
+    chat.appendChild(div);
+
+    if (extra) {
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = extra;
+      chat.appendChild(meta);
+    }
+
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const msg = text.value.trim();
+    if (!msg) return;
+
+    add("me", msg);
+    text.value = "";
+    send.disabled = true;
+    statusEl.textContent = "Calling model...";
+
+    try {
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: msg })
+      });
+
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(`HTTP ${res.status}: ${t}`);
+      }
+
+      const data = await res.json();
+      add("bot",
+          `Label: ${data.label}`,
+          `Confidence: ${Number(data.confidence).toFixed(4)} | Input: ${data.input}`
+      );
+      statusEl.textContent = "";
+    } catch (err) {
+      add("bot", "Error: " + err.message);
+      statusEl.textContent = "";
+    } finally {
+      send.disabled = false;
+      text.focus();
+    }
+  }
+
+  send.addEventListener("click", sendMessage);
+  text.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
+
+  add("bot", "Hi! Send any text and I’ll return label + confidence.");
+  text.focus();
+</script>
+</body>
+</html>
